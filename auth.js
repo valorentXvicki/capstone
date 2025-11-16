@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   // --- Constants and Global Setup ---
   const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID'; // Centralized constant
-  const API_BASE_URL = 'http://localhost:3000';
+  const API_BASE_URL = 'http://localhost:8000';
 
   // --- Helper Functions ---
   const handleApiResponse = (response, result, successCallback, errorCallback) => {

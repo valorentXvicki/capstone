@@ -6,7 +6,8 @@ from transformers import pipeline
 import openai
 import os
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-from .recsys import router, gen_model as recsys_gen_model
+from .recsys import router as recsys_router, gen_model as recsys_gen_model
+from .auth import router as auth_router
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 import asyncio
@@ -27,8 +28,10 @@ gen_model = pipeline("text-generation", model="gpt2", max_length=150, do_sample=
 # Set gen_model for recsys
 recsys_gen_model = gen_model
 
-# OpenAI API key (set as environment variable or replace with your key)
-openai.api_key = os.getenv("OPENAI_API_KEY", "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")
+# OpenAI API key (set as environment variable)
+openai.api_key = os.getenv("OPENAI_API_KEY")
+if not openai.api_key:
+    print("WARNING: OPENAI_API_KEY environment variable not set. Chat functionality will be limited.")
 
 # Simple dialogue state (in-memory; use Redis for production)
 conversation_states = {}  # user_id: {"state": "initial", "context": {}}
@@ -99,8 +102,9 @@ async def get_metrics():
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Metrics image not found. Please train the model first.")
 
-# Include recsys router
-app.include_router(router, prefix="/recsys", tags=["recommendation"])
+# Include routers
+app.include_router(auth_router, tags=["authentication"])
+app.include_router(recsys_router, prefix="/recsys", tags=["recommendation"])
 
 # Predefined sources for automatic scraping
 PREDEFINED_SOURCES = [
