@@ -27,8 +27,8 @@ gen_model = pipeline("text-generation", model="gpt2", max_length=150, do_sample=
 # Set gen_model for recsys
 recsys_gen_model = gen_model
 
-# OpenAI API key (set as environment variable or replace with your key)
-openai.api_key = os.getenv("OPENAI_API_KEY", "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")
+# OpenAI API key (set as environment variable)
+openai.api_key = os.getenv("OPENAI_API_KEY", None)
 
 # Simple dialogue state (in-memory; use Redis for production)
 conversation_states = {}  # user_id: {"state": "initial", "context": {}}
@@ -51,26 +51,32 @@ async def chat(request: ChatRequest):
     # Add user's current input to the history
     state["context"]["history"].append({"role": "user", "content": request.user_input})
 
-    try:
-        @retry( # Error handling and retries are already properly implemented with tenacity
-            stop=stop_after_attempt(5),
-            wait=wait_exponential(multiplier=2, min=4, max=60),
-            retry=retry_if_exception_type(openai.RateLimitError)
-        )
-        def call_openai():
-            client = openai.OpenAI(api_key=openai.api_key)
-            completion = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=state["context"]["history"], # Use the full conversation history
-                max_tokens=300,  # Increased for longer responses
-                temperature=0.7
+    # Try OpenAI first if API key is available
+    response = None
+    if openai.api_key:
+        try:
+            @retry( # Error handling and retries are already properly implemented with tenacity
+                stop=stop_after_attempt(3),
+                wait=wait_exponential(multiplier=2, min=2, max=30),
+                retry=retry_if_exception_type(openai.RateLimitError)
             )
-            return completion.choices[0].message.content.strip()
+            def call_openai():
+                client = openai.OpenAI(api_key=openai.api_key)
+                completion = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=state["context"]["history"], # Use the full conversation history
+                    max_tokens=300,  # Increased for longer responses
+                    temperature=0.7
+                )
+                return completion.choices[0].message.content.strip()
 
-        response = call_openai()
-    except Exception as e:
-        print(f"OpenAI error: {e}")
-        # Fallback to local GPT-2 if OpenAI fails
+            response = call_openai()
+        except Exception as e:
+            print(f"OpenAI error: {e}")
+            response = None
+    
+    # Fallback to local GPT-2 if OpenAI is not available or fails
+    if response is None:
         try:
             prompt = f"You are a helpful AI assistant. Respond to: '{request.user_input}'."
             generated = gen_model(prompt, max_length=150, do_sample=True, temperature=0.7)
