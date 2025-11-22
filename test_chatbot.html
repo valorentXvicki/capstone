@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Coach Chatbot Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .chat-box {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            background-color: #f9f9f9;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .message.user {
+            background-color: #007bff;
+            color: white;
+            text-align: right;
+        }
+        .message.bot {
+            background-color: #e9ecef;
+            color: #333;
+        }
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+        input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .test-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .test-buttons button {
+            background-color: #28a745;
+            font-size: 14px;
+            padding: 8px 12px;
+        }
+        .test-buttons button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏃 AI Coach Chatbot Test</h1>
+        <div id="status" class="status disconnected">Checking connection...</div>
+        
+        <div class="chat-box" id="chatBox"></div>
+        
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="Type your message..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <button onclick="sendMessage()" id="sendBtn">Send</button>
+        </div>
+        
+        <div class="test-buttons">
+            <button onclick="testQuery('Hello!')">Test: Hello</button>
+            <button onclick="testQuery('What workout should I do?')">Test: Workout</button>
+            <button onclick="testQuery('Find me a run club')">Test: Run Club</button>
+            <button onclick="testQuery('Help me with training')">Test: Training</button>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://127.0.0.1:8000';
+        const statusDiv = document.getElementById('status');
+        const chatBox = document.getElementById('chatBox');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        // Check backend connection on page load
+        async function checkConnection() {
+            try {
+                const response = await fetch(`${BACKEND_URL}/health`);
+                if (response.ok) {
+                    statusDiv.textContent = '✓ Connected to backend';
+                    statusDiv.className = 'status connected';
+                    return true;
+                }
+            } catch (error) {
+                statusDiv.textContent = '✗ Backend not running - Please start backend server on port 8000';
+                statusDiv.className = 'status disconnected';
+                return false;
+            }
+        }
+
+        // Add message to chat
+        function addMessage(text, isUser) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+            messageDiv.textContent = text;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // Send message to backend
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            // Disable input while sending
+            userInput.disabled = true;
+            sendBtn.disabled = true;
+
+            // Add user message to chat
+            addMessage(message, true);
+            userInput.value = '';
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_input: message,
+                        user_id: 'test_user'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    addMessage(data.response, false);
+                } else {
+                    addMessage('Error: Failed to get response from backend', false);
+                }
+            } catch (error) {
+                addMessage('Error: Could not connect to backend. Is it running?', false);
+            } finally {
+                // Re-enable input
+                userInput.disabled = false;
+                sendBtn.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        // Test query helper
+        function testQuery(query) {
+            userInput.value = query;
+            sendMessage();
+        }
+
+        // Initialize
+        checkConnection().then(connected => {
+            if (connected) {
+                addMessage('Hello! I\'m your AI Coach. How can I help you today?', false);
+            }
+        });
+    </script>
+</body>
+</html>
