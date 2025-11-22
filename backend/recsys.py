@@ -59,6 +59,12 @@ class Scraper:
             raise HTTPException(status_code=500, detail=f"Scraping failed: {str(e)}")
 
 class EventUpdater:
+    """Updates event descriptions using AI (Gemini API when available).
+    
+    Args:
+        gen_model: Generative model for fallback (can be None)
+        gemini_key: Google Gemini API key (optional, uses environment variable)
+    """
     def __init__(self, gen_model, gemini_key):
         self.gen_model = gen_model
         self.gemini_key = gemini_key
@@ -69,7 +75,9 @@ class EventUpdater:
             self.gemini_model = None
 
     def update_event_with_ai(self, event: Dict) -> Dict:
-        """Use Gemini to enhance event description."""
+        """Use Gemini to enhance event description.
+        
+        Falls back to unchanged event if Gemini is not available."""
         if not self.gemini_model:
             return event  # Return unchanged if no Gemini API key
         try:

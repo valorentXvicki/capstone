@@ -27,8 +27,8 @@ app.add_middleware(
 # Note: GPT-2 model removed to avoid internet dependency at startup
 # Using simple fallback responses instead
 
-# OpenAI API key (set as environment variable)
-openai.api_key = os.getenv("OPENAI_API_KEY", None)
+# OpenAI API key from environment variable (used in call_openai function)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", None)
 
 # Simple dialogue state (in-memory; use Redis for production)
 conversation_states = {}  # user_id: {"state": "initial", "context": {}}
@@ -53,7 +53,7 @@ async def chat(request: ChatRequest):
 
     # Try OpenAI first if API key is available
     response = None
-    if openai.api_key:
+    if OPENAI_API_KEY:
         try:
             @retry( # Error handling and retries are already properly implemented with tenacity
                 stop=stop_after_attempt(3),
@@ -61,7 +61,7 @@ async def chat(request: ChatRequest):
                 retry=retry_if_exception_type(openai.RateLimitError)
             )
             def call_openai():
-                client = openai.OpenAI(api_key=openai.api_key)
+                client = openai.OpenAI(api_key=OPENAI_API_KEY)
                 completion = client.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=state["context"]["history"], # Use the full conversation history
